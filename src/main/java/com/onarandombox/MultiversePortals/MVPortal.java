@@ -54,7 +54,7 @@ public class MVPortal {
     private boolean allowSave;
     private String handlerScript;
 
-    private static final Collection<Material> INTERIOR_MATERIALS = Arrays.asList(Material.NETHER_PORTAL, Material.GRASS,
+    private static final Collection<Material> INTERIOR_MATERIALS = Arrays.asList(Material.NETHER_PORTAL, Material.GRASS_BLOCK,
             Material.VINE, Material.SNOW, Material.AIR, Material.WATER, Material.LAVA);
 
     public static final Pattern PORTAL_NAME_PATTERN = Pattern.compile("[a-zA-Z0-9_-]+");

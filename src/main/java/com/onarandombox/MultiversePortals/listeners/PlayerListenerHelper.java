@@ -56,10 +56,8 @@ public class PlayerListenerHelper {
         Buscript buscript = plugin.getCore().getScriptAPI();
         File handlerScript = new File(buscript.getScriptFolder(), portal.getHandlerScript());
         if (handlerScript.exists()) {
-            MVPTravelAgent agent = new MVPTravelAgent(this.plugin.getCore(), d, player);
             buscript.setScriptVariable("portal", portal);
             buscript.setScriptVariable("player", player);
-            buscript.setScriptVariable("travelAgent", agent);
             buscript.setScriptVariable("allowPortal", true);
             buscript.setScriptVariable("portalSession", ps);
             buscript.executeScript(handlerScript, player.getName());
@@ -71,7 +69,7 @@ public class PlayerListenerHelper {
             buscript.setScriptVariable("allowPortal", null);
             if (allowObject instanceof Boolean) {
                 if (((Boolean) allowObject)) {
-                    MVPortalEvent portalEvent = new MVPortalEvent(d, player, agent, portal);
+                    MVPortalEvent portalEvent = new MVPortalEvent(d, player, null, portal);
                     this.plugin.getServer().getPluginManager().callEvent(portalEvent);
                     if (!portalEvent.isCancelled()) {
                         return true;

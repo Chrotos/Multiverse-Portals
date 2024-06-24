@@ -2,22 +2,21 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'checkstyle'
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'io.github.goooler.shadow' version '8.1.7'
+    id "xyz.jpenilla.run-paper" version "2.0.1"
 }
 
 version = System.getenv('GITHUB_VERSION') ?: 'local'
 group = 'com.onarandombox.multiverseportals'
 description = 'Multiverse-Portals'
 
-java.sourceCompatibility = JavaVersion.VERSION_11
-
 repositories {
     mavenLocal()
     mavenCentral()
 
     maven {
-        name = 'spigotmc'
-        url = uri('https://hub.spigotmc.org/nexus/content/repositories/snapshots/')
+        name = 'papermc'
+        url = uri("https://papermc.io/repo/repository/maven-public/")
     }
 
     maven {
@@ -32,11 +31,11 @@ repositories {
 }
 
 dependencies {
-    // Spigot
-    implementation 'org.bukkit:bukkit:1.13.2-R0.1-SNAPSHOT'
+    // Paper
+    implementation 'io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT'
 
     // Core
-    implementation 'com.onarandombox.multiversecore:Multiverse-Core:4.2.2'
+    implementation 'com.onarandombox.multiversecore:Multiverse-Core:4.3.1'
 
     //WorldEdit
     implementation('com.sk89q.worldedit:worldedit-bukkit:7.2.9') {
@@ -57,10 +56,17 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.release.set(21)
 }
 
 tasks.withType(Javadoc).configureEach {
     options.encoding = 'UTF-8'
+}
+
+tasks {
+    runServer {
+        minecraftVersion("1.20.6")
+    }
 }
 
 
@@ -105,7 +111,7 @@ processResources {
 
 
 checkstyle {
-    toolVersion = '6.1.1'
+    toolVersion = '10.12.4'
     configFile file('config/mv_checks.xml')
     ignoreFailures = true
 }
@@ -125,6 +131,8 @@ shadowJar {
 
     configurations = [project.configurations.api]
 
+    def baseName = archiveBaseName.get()
+    def extension = archiveExtension.get()
     archiveFileName = "$baseName-$version.$extension"
 }
 

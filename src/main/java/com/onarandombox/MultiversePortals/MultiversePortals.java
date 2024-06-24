@@ -159,6 +159,7 @@ public class MultiversePortals extends JavaPlugin implements MVPlugin {
         MVPPlayerListener playerListener = new MVPPlayerListener(this, playerListenerHelper);
         MVPBlockListener blockListener = new MVPBlockListener(this);
         MVPCoreListener coreListener = new MVPCoreListener(this);
+        MVPVehicleListener vehicleListener = new MVPVehicleListener(this);
 
         // Register our listeners with the Bukkit Server
         PluginManager pm = getServer().getPluginManager();
@@ -166,10 +167,10 @@ public class MultiversePortals extends JavaPlugin implements MVPlugin {
         pm.registerEvents(playerListener, this);
         pm.registerEvents(blockListener, this);
         if (MultiversePortals.TeleportVehicles) {
-            pm.registerEvents(new MVPVehicleListener(this), this);
+            pm.registerEvents(vehicleListener, this);
         }
         if (MultiversePortals.UseOnMove) {
-            pm.registerEvents(new MVPPlayerMoveListener(this, playerListenerHelper), this);
+            pm.registerEvents(new MVPPlayerMoveListener(this, playerListenerHelper, vehicleListener), this);
         }
         pm.registerEvents(coreListener, this);
     }
@@ -444,9 +445,11 @@ public class MultiversePortals extends JavaPlugin implements MVPlugin {
 
         this.loadConfig();
 
+        MVPVehicleListener vehicleListener = new MVPVehicleListener(this);
+
         if (MultiversePortals.TeleportVehicles != previousTeleportVehicles) {
             if (MultiversePortals.TeleportVehicles) {
-                pm.registerEvents(new MVPVehicleListener(this), this);
+                pm.registerEvents(vehicleListener, this);
             } else {
                 VehicleMoveEvent.getHandlerList().unregister(this);
             }
@@ -454,7 +457,7 @@ public class MultiversePortals extends JavaPlugin implements MVPlugin {
 
         if (MultiversePortals.UseOnMove != previousUseOnMove) {
             if (MultiversePortals.UseOnMove) {
-                pm.registerEvents(new MVPPlayerMoveListener(this, new PlayerListenerHelper(this)), this);
+                pm.registerEvents(new MVPPlayerMoveListener(this, new PlayerListenerHelper(this), vehicleListener), this);
             } else {
                 BlockFromToEvent.getHandlerList().unregister(this);
                 PlayerMoveEvent.getHandlerList().unregister(this);

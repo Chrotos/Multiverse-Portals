@@ -7,15 +7,19 @@
 
 package com.onarandombox.MultiversePortals.listeners;
 
+import java.util.ArrayList;
 import java.util.Date;
 
 import com.onarandombox.MultiversePortals.enums.MoveType;
+import io.papermc.paper.entity.TeleportFlag;
+import io.papermc.paper.event.entity.EntityMoveEvent;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.vehicle.VehicleMoveEvent;
 import org.bukkit.util.Vector;
 
@@ -42,139 +46,93 @@ public class MVPVehicleListener implements Listener {
 
     @EventHandler
     public void vehicleMove(VehicleMoveEvent event) {
-        if (event.getVehicle().getPassenger() instanceof Player) {
-            Vehicle v = event.getVehicle();
-            Player p = (Player) v.getPassenger();
-            PortalPlayerSession ps = this.plugin.getPortalSession(p);
-            ps.setStaleLocation(v.getLocation(), MoveType.VEHICLE_MOVE);
-
-            if (ps.isStaleLocation()) {
-                return;
-            }
-
-            // Teleport the Player
-            teleportVehicle(p, v, event.getTo());
-        } else {
-            MVPortal portal = this.plugin.getPortalManager().getPortal(event.getFrom());
-            if ((portal != null) && (portal.getTeleportNonPlayers())) {
-                MVDestination dest = portal.getDestination();
-                if (dest == null || dest instanceof InvalidDestination)
-                    return;
-
-                // Check the portal's frame.
-                if (!portal.isFrameValid(event.getVehicle().getLocation())) {
-                    return;
-                }
-
-                Vector vehicleVec = event.getVehicle().getVelocity();
-                Location target = dest.getLocation(event.getVehicle());
-                if (dest instanceof PortalDestination) {
-                    PortalDestination pd = (PortalDestination) dest;
-                    // Translate the direction of travel.
-                    vehicleVec = this.locationManipulation.getTranslatedVector(vehicleVec, pd.getOrientationString());
-                }
-
-                this.setVehicleVelocity(vehicleVec, dest, event.getVehicle());
-
-                Entity formerPassenger = event.getVehicle().getPassenger();
-                event.getVehicle().eject();
-
-                Vehicle newVehicle = target.getWorld().spawn(target, event.getVehicle().getClass());
-
-                if (formerPassenger != null) {
-                    formerPassenger.teleport(target);
-                    newVehicle.setPassenger(formerPassenger);
-                }
-
-                this.setVehicleVelocity(vehicleVec, dest, newVehicle);
-
-                // remove the old one
-                event.getVehicle().remove();
-            }
-        }
+        teleportVehicle(event.getVehicle(), event.getTo());
     }
 
-    private boolean teleportVehicle(Player p, Vehicle v, Location to) {
-        PortalPlayerSession ps = this.plugin.getPortalSession(p);
-        MVPortal portal = ps.getStandingInPortal();
-        // If the portal is not null
-        // AND if we did not show debug info, do the stuff
-        // The debug is meant to toggle.
-        if (portal != null && ps.doTeleportPlayer(MoveType.VEHICLE_MOVE) && !ps.showDebugInfo()) {
-            if (ps.checkAndSendCooldownMessage()) {
-                return false;
-            }
-            // TODO: Money
-            MVDestination d = portal.getDestination();
-            if (d == null || d instanceof InvalidDestination) {
-                return false;
-            }
+    public boolean teleportVehicle(Vehicle v, Location to) {
+        Vector vehicleVec = v.getVelocity();
+        MVPortal portal = this.plugin.getPortalManager().getPortal(to);
 
-            // Check the portal's frame.
-            if (!portal.isFrameValid(v.getLocation())) {
-                return false;
-            }
-
-            Location l = d.getLocation(p);
-            Vector vehicleVec = v.getVelocity();
-
-            // 0 Yaw in dest = 0,X
-            if (d instanceof PortalDestination) {
-                PortalDestination pd = (PortalDestination) d;
-
-                // Translate the direction of travel.
-                vehicleVec = this.locationManipulation.getTranslatedVector(vehicleVec, pd.getOrientationString());
-            }
-
-            // Set the velocity
-            // Will set to the destination's velocity if one is present
-            // Or
-            this.setVehicleVelocity(vehicleVec, d, v);
-
-            p.setFallDistance(0);
-
-            // The worlds are different! Ahhh!
-            if (!l.getWorld().equals(p.getWorld())) {
-                return teleportVehicleSeperately(p, v, d, ps, this.safeTTeleporter);
-            }
-
-            if (this.safeTTeleporter.safelyTeleport(p, v, d) == TeleportResult.SUCCESS) {
-                ps.playerDidTeleport(to);
-                ps.setTeleportTime(new Date());
-            }
-            return true;
-        }
-        return false;
-    }
-
-    private boolean teleportVehicleSeperately(Player p, Vehicle v, MVDestination to, PortalPlayerSession ps, SafeTTeleporter tp) {
-        // Remove the player from the old one.
-        v.eject();
-        Location toLocation = to.getLocation(v);
-        // Add an offset to ensure the player is 1 higher than where the cart was.
-        to.getLocation(p).add(0, .5, 0);
-        // If they didn't teleport, return false and place them back into their vehicle.
-        if (!(tp.safelyTeleport(p, p, to) == TeleportResult.SUCCESS)) {
-            v.setPassenger(p);
+        if (portal == null) {
             return false;
         }
 
-        // Now create a new vehicle:
-        Vehicle newVehicle = toLocation.getWorld().spawn(toLocation, v.getClass());
+        MVDestination d = portal.getDestination();
+        if (d == null || d instanceof InvalidDestination) {
+            return false;
+        }
 
-        // Set the vehicle's velocity to ours.
-        this.setVehicleVelocity(v.getVelocity(), to, newVehicle);
+        // Check the portal's frame.
+        if (!portal.isFrameValid(v.getLocation())) {
+            return false;
+        }
 
-        // Set the new player
-        newVehicle.setPassenger(p);
+        // 0 Yaw in dest = 0,X
+        if (d instanceof PortalDestination pd) {
+            // Translate the direction of travel.
+            vehicleVec = this.locationManipulation.getTranslatedVector(vehicleVec, pd.getOrientationString());
+        }
 
-        // They did teleport. Let's delete the old vehicle.
-        v.remove();
+        for (Entity e : v.getPassengers()) {
+            if (e instanceof Player p) {
+                PortalPlayerSession ps = this.plugin.getPortalSession(p);
+                if (ps.checkAndSendCooldownMessage()) {
+                    return false;
+                }
+                // TODO: Money
+
+                p.setFallDistance(0);
+
+                if (this.safeTTeleporter.safelyTeleport(p, v, d) == TeleportResult.SUCCESS) {
+                    ps.playerDidTeleport(to);
+                    ps.setTeleportTime(new Date());
+                }
+            } else if (!portal.getTeleportNonPlayers()) {
+                return false;
+            }
+        }
+
+        Location target = d.getLocation(v);
+
+        // Set the velocity
+        // Will set to the destination's velocity if one is present
+        // Or
+        this.setVehicleVelocity(vehicleVec, d, v);
+
+        if (target == null) {
+            return false;
+        }
+
+        if (target.getWorld().equals(v.getWorld())) {
+            v.teleport(this.safeTTeleporter.getSafeLocation(target), PlayerTeleportEvent.TeleportCause.PLUGIN, TeleportFlag.EntityState.RETAIN_PASSENGERS);
+        } else {
+            Location safeLocation = this.safeTTeleporter.getSafeLocation(target);
+            ArrayList<Entity> passengers = new ArrayList<>(v.getPassengers());
+
+            v.eject();
+
+            boolean success = v.teleport(safeLocation, PlayerTeleportEvent.TeleportCause.PLUGIN);
+
+            for (Entity passenger : passengers) {
+                if (success) {
+                    boolean formerSuccess = success;
+                    success = passenger.teleport(safeLocation, PlayerTeleportEvent.TeleportCause.PLUGIN);
+
+                    if (formerSuccess != success) {
+                        v.teleport(to);
+                    }
+                }
+
+                v.addPassenger(passenger);
+            }
+
+            return success;
+        }
 
         return true;
     }
 
-    private void setVehicleVelocity(Vector calculated, MVDestination to, Vehicle newVehicle) {
+    public void setVehicleVelocity(Vector calculated, MVDestination to, Vehicle newVehicle) {
         // If the destination has a non-zero velocity, use that,
         // otherwise use the existing velocity, because velocities
         // are preserved through portals... duh.

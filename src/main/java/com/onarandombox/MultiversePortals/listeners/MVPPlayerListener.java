@@ -286,8 +286,6 @@ public class MVPPlayerListener implements Listener {
                     return;
                 }
 
-                MVPTravelAgent agent = new MVPTravelAgent(this.plugin.getCore(), portalDest, event.getPlayer());
-
                 boolean shouldPay = false;
                 double price = portal.getPrice();
                 Material currency = portal.getCurrency();
@@ -303,8 +301,7 @@ public class MVPPlayerListener implements Listener {
                     }
                 }
 
-                agent.setPortalEventTravelAgent(event);
-                MVPortalEvent portalEvent = new MVPortalEvent(portalDest, event.getPlayer(), agent, portal);
+                MVPortalEvent portalEvent = new MVPortalEvent(portalDest, event.getPlayer(), null, portal);
                 this.plugin.getServer().getPluginManager().callEvent(portalEvent);
 
                 if (portalEvent.isCancelled()) {

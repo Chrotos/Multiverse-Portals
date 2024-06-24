@@ -7,10 +7,12 @@
 
 package com.onarandombox.MultiversePortals.listeners;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.logging.Level;
 
 import com.dumptruckman.minecraft.util.Logging;
+import com.google.common.collect.Lists;
 import com.onarandombox.MultiverseCore.api.MVDestination;
 import com.onarandombox.MultiverseCore.api.MultiverseWorld;
 import com.onarandombox.MultiverseCore.destination.InvalidDestination;
@@ -23,7 +25,9 @@ import com.onarandombox.MultiversePortals.event.MVPortalEvent;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -31,13 +35,18 @@ import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 
 public class MVPPlayerMoveListener implements Listener {
+    private final static ArrayList<EntityType> IGNORED_VEHICLE_ENTITY_TYPES = Lists.newArrayList(EntityType.BOAT,
+            EntityType.CHEST_BOAT,
+            EntityType.MINECART);
 
     private MultiversePortals plugin;
     private PlayerListenerHelper helper;
+    private MVPVehicleListener vehicleListener;
 
-    public MVPPlayerMoveListener(MultiversePortals plugin, PlayerListenerHelper helper) {
+    public MVPPlayerMoveListener(MultiversePortals plugin, PlayerListenerHelper helper, MVPVehicleListener vehicleListener) {
         this.plugin = plugin;
         this.helper = helper;
+        this.vehicleListener = vehicleListener;
     }
 
     @EventHandler(priority = EventPriority.LOW)
@@ -73,7 +82,10 @@ public class MVPPlayerMoveListener implements Listener {
 
         // Check the Player has actually moved a block to prevent unneeded calculations... This is to prevent huge performance drops on high player count servers.
         PortalPlayerSession ps = this.plugin.getPortalSession(event.getPlayer());
-        ps.setStaleLocation(loc, MoveType.PLAYER_MOVE);
+
+        MoveType moveType = p.isInsideVehicle() && !IGNORED_VEHICLE_ENTITY_TYPES.contains(p.getVehicle().getType()) ? MoveType.VEHICLE_MOVE : MoveType.PLAYER_MOVE;
+
+        ps.setStaleLocation(loc, moveType);
 
         // If the location is stale, ie: the player isn't actually moving xyz coords, they're looking around
         if (ps.isStaleLocation()) {
@@ -84,8 +96,14 @@ public class MVPPlayerMoveListener implements Listener {
         // and we didn't show debug info (the debug is meant to toggle), do the stuff.
         if (portal != null
                 && (!MultiversePortals.NetherAnimation || portal.isLegacyPortal())
-                && ps.doTeleportPlayer(MoveType.PLAYER_MOVE)
+                && ps.doTeleportPlayer(moveType)
                 && !ps.showDebugInfo()) {
+
+            if (moveType == MoveType.VEHICLE_MOVE) {
+                if (vehicleListener.teleportVehicle((Vehicle) p.getVehicle(), loc)) {
+                    return;
+                }
+            }
 
             MVDestination d = portal.getDestination();
             if (d == null) {
@@ -144,8 +162,7 @@ public class MVPPlayerMoveListener implements Listener {
             if (price != 0D && !p.hasPermission(portal.getExempt())) {
                 if (price < 0D || economist.isPlayerWealthyEnough(p, price, currency)) {
                     // call event for other plugins
-                    MVPTravelAgent agent = new MVPTravelAgent(this.plugin.getCore(), d, event.getPlayer());
-                    MVPortalEvent portalEvent = new MVPortalEvent(d, event.getPlayer(), agent, portal);
+                    MVPortalEvent portalEvent = new MVPortalEvent(d, event.getPlayer(), null, portal);
                     this.plugin.getServer().getPluginManager().callEvent(portalEvent);
                     if (!portalEvent.isCancelled()) {
                         if (price < 0D) {
@@ -165,8 +182,7 @@ public class MVPPlayerMoveListener implements Listener {
                 }
             } else {
                 // call event for other plugins
-                MVPTravelAgent agent = new MVPTravelAgent(this.plugin.getCore(), d, event.getPlayer());
-                MVPortalEvent portalEvent = new MVPortalEvent(d, event.getPlayer(), agent, portal);
+                MVPortalEvent portalEvent = new MVPortalEvent(d, event.getPlayer(), null, portal);
                 this.plugin.getServer().getPluginManager().callEvent(portalEvent);
                 if (!portalEvent.isCancelled()) {
                     helper.performTeleport(event.getPlayer(), event.getTo(), ps, d);
